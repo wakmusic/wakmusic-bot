@@ -1,0 +1,182 @@
+import json
+import sqlite3
+
+import discord
+from discord.ext import commands
+from discord import Option, SlashCommandGroup
+from aiohttp import ClientSession
+from components import PlForm
+
+with open('config.json', encoding='utf-8-sig') as file:
+    js = json.load(file)
+
+
+class Playlist(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    group = SlashCommandGroup("재생목록", "추천 재생목록 관련 명령어")
+
+    @staticmethod
+    def check_perms(ctx):
+        if 984724942702665758 in [r.id for r in ctx.author.roles]:
+            return True
+        else:
+            return False
+
+    @group.command(name='추가', description='추천 재생목록을 추가합니다.')
+    async def pl_add(self, ctx):
+        if self.check_perms(ctx):
+            form = PlForm()
+            return await ctx.interaction.response.send_modal(form)
+        return await ctx.respond("권한이 없습니다.")
+
+    @staticmethod
+    def convert_str(v: int):
+        if v == 0:
+            return "비공개"
+        return "공개"
+
+    @group.command(name='목록', description='추천 재생목록을 모두 불러옵니다.')
+    async def pl_list(self, ctx):
+        if self.check_perms(ctx):
+            cursor = sqlite3.connect(js['database_src'] + 'like.db').cursor()
+            pls = cursor.execute('SELECT * FROM playlist').fetchall()
+
+            embed = discord.Embed(title=f"추천 재생목록")
+            for pl in pls:
+                embed.add_field(name=f"{pl[1]}(`{pl[0]}`)", value=f"`{self.convert_str(pl[3])}` | {len(pl[2])}곡", inline=False)
+            return await ctx.respond(embed=embed)
+        return await ctx.respond("권한이 없습니다.")
+
+    @group.command(name='공개설정', description='재생목록 공개 여부를 전환합니다.')
+    async def pl_pub(self, ctx, pid: Option(str, "재생목록 ID를 입력해 주세요")):
+        if self.check_perms(ctx):
+            conn = sqlite3.connect(js['database_src'] + 'like.db')
+            cursor = conn.cursor()
+
+            current = cursor.execute(f'SELECT * FROM playlist WHERE id = "{pid}"').fetchone()
+            if not current:
+                return await ctx.respond("존재하지 않는 재생목록입니다.")
+
+            c, s = 0, "비공개"
+            if current[3] == 0:
+                c, s = 1, "공개"
+
+            cursor.execute(f'UPDATE playlist SET public = "{c}" WHERE id = "{pid}"')
+            conn.commit()
+            conn.close()
+            return await ctx.respond(f"{current[1]}(`{pid}`)(을)를 {s} 상태로 설정하였습니다.")
+        return await ctx.respond("권한이 없습니다.")
+
+    @group.command(name='삭제', description='추천 재생목록을 삭제합니다.')
+    async def pl_rem(self, ctx, pid: Option(str, "재생목록 ID를 입력해 주세요")):
+        if self.check_perms(ctx):
+            conn = sqlite3.connect(js['database_src'] + 'like.db')
+            cursor = conn.cursor()
+
+            current = cursor.execute(f'SELECT * FROM playlist WHERE id = "{pid}"').fetchone()
+            if not current:
+                return await ctx.respond("존재하지 않는 재생목록입니다.")
+
+            cursor.execute(f'DELETE FROM playlist WHERE id = "{pid}"')
+            conn.commit()
+            conn.close()
+            return await ctx.respond(f"{current[1]}(`{pid}`)(을)를 삭제하였습니다.")
+        return await ctx.respond("권한이 없습니다.")
+
+    @group.command(name='곡추가', description='재생목록에 노래를 추가합니다.')
+    async def pl_s_add(self, ctx, pid: Option(str, "재생목록 ID를 입력해 주세요"),
+                       sid: Option(str, "추가할 노래의 ID를 입력해 주세요")):
+        if not self.check_perms(ctx):
+            return await ctx.respond("권한이 없습니다.")
+
+        s_cursor = sqlite3.connect(js['database_src'] + 'charts.db')
+        conn = sqlite3.connect(js['database_src'] + 'like.db')
+        cursor = conn.cursor()
+
+        songs = [s[0] for s in s_cursor.execute('SELECT * FROM total').fetchall()]
+        s_cursor.close()
+
+        if sid not in songs:
+            return await ctx.respond("존재하지 않는 노래 ID입니다.")
+
+        current = cursor.execute(f'SELECT * FROM playlist WHERE id = "{pid}"').fetchone()
+        if not current:
+            return await ctx.respond("존재하지 않는 재생목록입니다.")
+
+        ids = current[2].split(',')
+        if sid in ids:
+            return await ctx.respond("이미 재생목록에 추가된 노래입니다.")
+        ids.append(sid)
+
+        cursor.execute(f'UPDATE playlist SET song_ids = "{",".join(ids).strip(",")}" WHERE id = "{pid}"')
+        conn.commit()
+        conn.close()
+        return await ctx.respond(f"{sid}(이)가 {current[1]}에 추가되었습니다.")
+
+    @group.command(name='곡목록', description='재생목록의 노래 목록을 불러옵니다.')
+    async def pl_s_list(self, ctx, pid: Option(str, "재생목록 ID를 입력해 주세요")):
+        if not self.check_perms(ctx):
+            return await ctx.respond("권한이 없습니다.")
+
+        s_cursor = sqlite3.connect(js['database_src'] + 'charts.db')
+        cursor = sqlite3.connect(js['database_src'] + 'like.db').cursor()
+
+        current = cursor.execute(f'SELECT * FROM playlist WHERE id = "{pid}"').fetchone()
+        if not current:
+            return await ctx.respond("존재하지 않는 재생목록입니다.")
+
+        ids = '", "'.join(current[2].split(','))
+        results = s_cursor.execute(f'SELECT * FROM total WHERE id IN ("{ids}")').fetchall()
+
+        embed = discord.Embed(title=f"{current[1]} 곡 목록")
+        for r in results:
+            embed.add_field(name=f"{r[1]}(`{r[0]}`)", value=f"{r[2]} / {r[5]}", inline=False)
+
+        try:
+            return await ctx.respond(embed=embed)
+        except discord.HTTPException:
+            return await ctx.respond(current[2])
+
+    @group.command(name='곡삭제', description='재생목록에서 노래를 삭제합니다.')
+    async def pl_s_rem(self, ctx, pid: Option(str, "재생목록 ID를 입력해 주세요"),
+                       sid: Option(str, "삭제할 노래의 ID를 입력해 주세요")):
+        if not self.check_perms(ctx):
+            return await ctx.respond("권한이 없습니다.")
+
+        conn = sqlite3.connect(js['database_src'] + 'like.db')
+        cursor = conn.cursor()
+
+        current = cursor.execute(f'SELECT * FROM playlist WHERE id = "{pid}"').fetchone()
+        if not current:
+            return await ctx.respond("존재하지 않는 재생목록입니다.")
+
+        ids = current[2].split(',')
+        try:
+            ids.remove(sid)
+        except ValueError:
+            return await ctx.respond("재생목록에 추가되지 않은 노래입니다.")
+
+        cursor.execute(f'UPDATE playlist SET song_ids = "{",".join(ids)}" WHERE id = "{pid}"')
+        conn.commit()
+        conn.close()
+        return await ctx.respond(f"{sid}(이)가 {current[1]}에서 삭제되었습니다.")
+
+    @group.command(name='아이콘', description='추천 재생목록 아이콘을 업로드합니다.')
+    async def pl_icon(self, ctx, url: Option(str, "이미지 URL을 입력해 주세요"),
+                      pid: Option(str, "재생목록 ID를 입력해 주세요")):
+        if self.check_perms(ctx):
+            async with ClientSession() as session:
+                async with session.get(url) as res:
+                    data = await res.read()
+
+            with open(f'../wakmusic/src/images/pl-icons/{pid}.png', 'wb') as f:
+                f.write(data)
+
+            return await ctx.respond("아이콘을 업로드하였습니다.")
+        return await ctx.respond("권한이 없습니다.")
+
+
+def setup(bot):
+    bot.add_cog(Playlist(bot))
