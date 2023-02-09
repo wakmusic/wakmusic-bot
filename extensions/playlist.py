@@ -163,18 +163,39 @@ class Playlist(commands.Cog):
         conn.close()
         return await ctx.respond(f"{sid}(이)가 {current[1]}에서 삭제되었습니다.")
 
-    @group.command(name='아이콘', description='추천 재생목록 아이콘을 업로드합니다.')
-    async def pl_icon(self, ctx, url: Option(str, "이미지 URL을 입력해 주세요"),
-                      pid: Option(str, "재생목록 ID를 입력해 주세요")):
-        if self.check_perms(ctx):
+    @staticmethod
+    async def upload(url: str, root: str):
+        try:
             async with ClientSession() as session:
                 async with session.get(url) as res:
                     data = await res.read()
 
-            with open(f'../wakmusic/src/images/pl-icons/{pid}.png', 'wb') as f:
+            with open(root, 'wb') as f:
                 f.write(data)
+        except:
+            return False
+        return True
 
+    @group.command(name='원형아이콘', description='추천 재생목록 아이콘(원형)을 업로드합니다.')
+    async def pl_icon_rd(self, ctx, url: Option(str, "이미지 URL을 입력해 주세요"),
+                         pid: Option(str, "재생목록 ID를 입력해 주세요")):
+        if self.check_perms(ctx):
+            result = await self.upload(url, f'../wakmusic/src/images/pl-icons/round/{pid}.png')
+            if not result:
+                return await ctx.respond("오류가 발생하였습니다.")
             return await ctx.respond("아이콘을 업로드하였습니다.")
+
+        return await ctx.respond("권한이 없습니다.")
+
+    @group.command(name='사각아이콘', description='추천 재생목록 아이콘(사각형)을 업로드합니다.')
+    async def pl_icon_sq(self, ctx, url: Option(str, "이미지 URL을 입력해 주세요"),
+                         pid: Option(str, "재생목록 ID를 입력해 주세요")):
+        if self.check_perms(ctx):
+            result = await self.upload(url, f'../wakmusic/src/images/pl-icons/square/{pid}.png')
+            if not result:
+                return await ctx.respond("오류가 발생하였습니다.")
+            return await ctx.respond("아이콘을 업로드하였습니다.")
+
         return await ctx.respond("권한이 없습니다.")
 
 
