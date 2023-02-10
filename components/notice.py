@@ -11,8 +11,6 @@ class NoticeForm(discord.ui.Modal):
             self.js = json.load(file)
 
         super().__init__(title='공지 등록', custom_id="notice-create")
-        self.add_item(discord.ui.InputText(placeholder="공지 ID를 입력해 주세요(숫자).", label="공지 ID",
-                                           style=discord.InputTextStyle.short, required=True, value=None))
         self.add_item(discord.ui.InputText(placeholder="카테고리를 입력해 주세요.", label="카테고리",
                                            style=discord.InputTextStyle.short, required=True, value=None))
         self.add_item(discord.ui.InputText(placeholder="제목을 입력해 주세요.", label="제목",
@@ -24,14 +22,9 @@ class NoticeForm(discord.ui.Modal):
         conn = sqlite3.connect(self.js['database_src'] + 'static.db')
         cursor = conn.cursor()
 
-        nid = self.children[0].value
-        category = self.children[1].value
-        title = self.children[2].value
-        images = self.children[3].value.split('\n')
-
-        exist = cursor.execute(f'SELECT * FROM notice WHERE id = "{nid}"').fetchone()
-        if exist:
-            return await interaction.response.send_message('이미 추가된 공지입니다.')
+        category = self.children[0].value
+        title = self.children[1].value
+        images = self.children[2].value.split('\n')
 
         added = []
         for image in images:
@@ -45,7 +38,8 @@ class NoticeForm(discord.ui.Modal):
             added.append(f'{image_time}.png')
 
         created = int(time.time())
-        cursor.execute('INSERT INTO notice VALUES (?, ?, ?, ?, ?)', (nid, category, title, ','.join(added), created))
+        cursor.execute('INSERT INTO notice (category, title, images, create_at) VALUES (?, ?, ?, ?)', (category, title, ','.join(added), created))
         conn.commit()
+        added = cursor.execute(f'SELECT * FROM notice WHERE create_at = {created}').fetchone()
         conn.close()
-        return await interaction.response.send_message(f'{title}(`{nid}`) 공지가 추가되었습니다.')
+        return await interaction.response.send_message(f'{title}(`{added[0]}`) 공지가 추가되었습니다.')
