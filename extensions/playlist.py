@@ -45,7 +45,7 @@ class Playlist(commands.Cog):
 
             embed = discord.Embed(title=f"추천 재생목록")
             for pl in pls:
-                embed.add_field(name=f"{pl[1]}(`{pl[0]}`)", value=f"`{self.convert_str(pl[3])}` | {len(pl[2])}곡", inline=False)
+                embed.add_field(name=f"{pl[1]}(`{pl[0]}`)", value=f"`{self.convert_str(pl[3])}` | {len(pl[2].split(','))}곡", inline=False)
             return await ctx.respond(embed=embed)
         return await ctx.respond("권한이 없습니다.")
 
