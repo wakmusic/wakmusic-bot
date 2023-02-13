@@ -1,5 +1,6 @@
 import json
 import sqlite3
+import discord
 from discord.ext import commands
 from discord import Option, SlashCommandGroup
 from components import NoticeForm
@@ -41,6 +42,19 @@ class Notice(commands.Cog):
             conn.commit()
             conn.close()
             return await ctx.respond(f"{current[2]}(`{nid}`)(을)를 삭제하였습니다.")
+        return await ctx.respond("권한이 없습니다.")
+
+    @group.command(name='목록', description='공지 목록을 확인합니다.')
+    async def not_list(self, ctx):
+        if self.check_perms(ctx):
+            cursor = sqlite3.connect(js['database_src'] + 'static.db').cursor()
+            data = cursor.execute('SELECT * FROM notice').fetchall()
+
+            embed = discord.Embed(title="공지 목록")
+            for d in data:
+                embed.add_field(name=f"{d[2]}(`{d[0]}`)", value=f"생성 시각: <t:{d[4]}>\n카테고리: {d[1]}", inline=False)
+            return await ctx.respond(embed=embed)
+
         return await ctx.respond("권한이 없습니다.")
 
 
