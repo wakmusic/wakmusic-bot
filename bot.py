@@ -14,6 +14,8 @@ async def on_ready():
 bot.load_extension('extensions.news')
 bot.load_extension('extensions.lyrics')
 bot.load_extension('extensions.playlist')
+bot.load_extension('extensions.notice')
+bot.load_extension('extensions.qna')
 with open('config.json', encoding='utf-8-sig') as file:
     js = json.load(file)
 bot.run(js['token'], reconnect=True)
