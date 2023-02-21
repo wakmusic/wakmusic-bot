@@ -31,7 +31,7 @@ class Lyrics(commands.Cog):
                 return await ctx.respond(".srt -> .vtt 변환에 실패하였습니다. 다시 시도해 주세요.")
             os.remove(filename)
         else:
-            with open(f'../wakmusic-lyrics/lyrics/{fid}.srt', 'wb') as f:
+            with open(f'../wakmusic-lyrics/lyrics/{fid}.vtt', 'wb') as f:
                 f.write(data)
 
         return await ctx.respond(f"가사가 테스트 서버에 업로드되었습니다.\n"
