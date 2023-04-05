@@ -52,7 +52,7 @@ class Notice(commands.Cog):
 
             embed = discord.Embed(title="공지 목록")
             for d in data:
-                embed.add_field(name=f"{d[2]}(`{d[0]}`)", value=f"생성 시각: <t:{d[4]}>\n카테고리: {d[1]}", inline=False)
+                embed.add_field(name=f"{d[2]}(`{d[0]}`)", value=f"생성 시각: <t:{int(int(d[4])/1000)}>\n카테고리: {d[1]}", inline=False)
             return await ctx.respond(embed=embed)
 
         return await ctx.respond("권한이 없습니다.")
