@@ -4,6 +4,8 @@ import discord
 from discord.ext import commands
 from discord import Option, SlashCommandGroup
 from components import NoticeForm
+# from pytz import timezone
+from datetime import datetime, timedelta, timezone
 
 with open('config.json', encoding='utf-8-sig') as file:
     js = json.load(file)
@@ -17,6 +19,7 @@ class Notice(commands.Cog):
 
     @staticmethod
     def check_perms(ctx):
+        # return True
         if 984724942702665758 in [r.id for r in ctx.author.roles]:
             return True
         else:
@@ -27,6 +30,30 @@ class Notice(commands.Cog):
         if self.check_perms(ctx):
             return await ctx.interaction.response.send_modal(NoticeForm())
         return await ctx.respond("권한이 없습니다.")
+
+    @group.command(name='노출시간', description='공지의 노출시간을 설정합니다.')
+    async def not_chage_period(self, ctx, nid: Option(int, "공지 ID를 입력해 주세요"),
+                               period: Option(int, "공지의 노출 시간을 입력해 주세요.")):
+        if not self.check_perms(ctx):
+            return await ctx.respond("권한이 없습니다.")
+
+        conn = sqlite3.connect(js['database_src'] + 'static.db')
+        cursor = conn.cursor()
+
+        data = cursor.execute(f'SELECT * FROM notice WHERE id = "{nid}"').fetchone()
+        if not data:
+            return await ctx.respond("존재하지 않는 공지입니다.")
+
+        timezone_kst = timezone(timedelta(hours=9))
+
+        # date = datetime.utcfromtimestamp(data[5] / 1000.0)
+        date = datetime.fromtimestamp((int(data[7]) / 1000.0), tz=timezone_kst)
+        new_end_date = date + timedelta(days=int(period))
+
+        cursor.execute(f'UPDATE notice SET end_at=? WHERE id=?', (int(new_end_date.timestamp() * 1000), nid))
+        conn.commit()
+        conn.close()
+        return await ctx.respond(f"{data[0]}(`{nid}`)의 노출 기간이 {period}일로 설정되었습니다.")
 
     @group.command(name='삭제', description='공지를 삭제합니다.')
     async def not_rem(self, ctx, nid: Option(int, "공지 ID를 입력해 주세요")):
@@ -53,7 +80,7 @@ class Notice(commands.Cog):
             embed = discord.Embed(title="공지 목록")
             for d in data:
                 embed.add_field(name=f"{d[2]}(`{d[0]}`)",
-                                value=f"생성 시간: <t:{int(int(d[5]) / 1000)}>\n노출 시작 시간: <t:{int(int(d[6]) / 1000)}>\n노출 종료 시간: <t:{int(int(d[7]) / 1000)}>\n카테고리: {d[1]}",
+                                value=f"생성 시간: <t:{int(int(d[6]) / 1000)}>\n노출 시작 시간: <t:{int(int(d[7]) / 1000)}>\n노출 종료 시간: <t:{int(int(d[8]) / 1000)}>\n카테고리: {d[1]}",
                                 inline=False)
             return await ctx.respond(embed=embed)
 
