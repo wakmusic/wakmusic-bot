@@ -1,6 +1,7 @@
 import json
 import sqlite3
 import discord
+import pymysql
 
 
 class PlForm(discord.ui.Modal):
@@ -15,19 +16,23 @@ class PlForm(discord.ui.Modal):
                                            style=discord.InputTextStyle.short, required=True, value=None))
 
     async def callback(self, interaction: discord.Interaction):
-        conn = sqlite3.connect(self.js['database_src'] + 'like.db')
+        conn = pymysql.connect(host=self.js['database_host'], port=self.js['database_port'],
+                               user=self.js['database_user_id'],
+                               password=self.js['database_user_password'], database='like')
         cursor = conn.cursor()
 
         pid = self.children[0].value
         title = self.children[1].value
 
-        exist = cursor.execute(f'SELECT * FROM playlist WHERE id = "{pid}"').fetchone()
+        cursor.execute(f'SELECT * FROM playlist WHERE id = "{pid}"')
+        exist = cursor.fetchone()
         if exist:
             return await interaction.response.send_message('이미 동일한 ID를 가진 재생목록이 존재합니다.')
 
         cursor.execute('INSERT INTO playlist VALUES (?, ?, ?, ?)', (pid, title, "", 0))
         conn.commit()
-        conn.close()
 
+        cursor.close()
+        conn.close()
         return await interaction.response.send_message(f'{title}(`{pid}`) 재생목록이 추가되었습니다.\n'
                                                        f'`/재생목록 아이콘` 명령어를 사용해 아이콘을 업로드해 주세요.')

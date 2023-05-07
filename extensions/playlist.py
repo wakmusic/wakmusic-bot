@@ -1,6 +1,6 @@
 import json
 import sqlite3
-
+import pymysql
 import discord
 from discord.ext import commands
 from discord import Option, SlashCommandGroup
@@ -40,22 +40,31 @@ class Playlist(commands.Cog):
     @group.command(name='목록', description='추천 재생목록을 모두 불러옵니다.')
     async def pl_list(self, ctx):
         if self.check_perms(ctx):
-            cursor = sqlite3.connect(js['database_src'] + 'like.db').cursor()
-            pls = cursor.execute('SELECT * FROM playlist').fetchall()
+            conn = pymysql.connect(host=js['database_host'], port=js['database_port'], user=js['database_user_id'],
+                                   password=js['database_user_password'], database='like')
+            cursor = conn.cursor()
+
+            cursor.execute('SELECT * FROM playlist')
+            pls = cursor.fetchall()
 
             embed = discord.Embed(title=f"추천 재생목록")
             for pl in pls:
                 embed.add_field(name=f"{pl[1]}(`{pl[0]}`)", value=f"`{self.convert_str(pl[3])}` | {len(pl[2].split(','))}곡", inline=False)
+
+            cursor.close()
+            conn.close()
             return await ctx.respond(embed=embed)
         return await ctx.respond("권한이 없습니다.")
 
     @group.command(name='공개설정', description='재생목록 공개 여부를 전환합니다.')
     async def pl_pub(self, ctx, pid: Option(str, "재생목록 ID를 입력해 주세요")):
         if self.check_perms(ctx):
-            conn = sqlite3.connect(js['database_src'] + 'like.db')
+            conn = pymysql.connect(host=js['database_host'], port=js['database_port'], user=js['database_user_id'],
+                                   password=js['database_user_password'], database='like')
             cursor = conn.cursor()
 
-            current = cursor.execute(f'SELECT * FROM playlist WHERE id = "{pid}"').fetchone()
+            cursor.execute(f'SELECT * FROM playlist WHERE id = "{pid}"')
+            current = cursor.fetchone()
             if not current:
                 return await ctx.respond("존재하지 않는 재생목록입니다.")
 
@@ -65,6 +74,8 @@ class Playlist(commands.Cog):
 
             cursor.execute(f'UPDATE playlist SET public = "{c}" WHERE id = "{pid}"')
             conn.commit()
+
+            cursor.close()
             conn.close()
             return await ctx.respond(f"{current[1]}(`{pid}`)(을)를 {s} 상태로 설정하였습니다.")
         return await ctx.respond("권한이 없습니다.")
@@ -72,15 +83,19 @@ class Playlist(commands.Cog):
     @group.command(name='삭제', description='추천 재생목록을 삭제합니다.')
     async def pl_rem(self, ctx, pid: Option(str, "재생목록 ID를 입력해 주세요")):
         if self.check_perms(ctx):
-            conn = sqlite3.connect(js['database_src'] + 'like.db')
+            conn = pymysql.connect(host=js['database_host'], port=js['database_port'], user=js['database_user_id'],
+                                   password=js['database_user_password'], database='like')
             cursor = conn.cursor()
 
-            current = cursor.execute(f'SELECT * FROM playlist WHERE id = "{pid}"').fetchone()
+            cursor.execute(f'SELECT * FROM playlist WHERE id = "{pid}"')
+            current = cursor.fetchone()
             if not current:
                 return await ctx.respond("존재하지 않는 재생목록입니다.")
 
             cursor.execute(f'DELETE FROM playlist WHERE id = "{pid}"')
             conn.commit()
+
+            cursor.close()
             conn.close()
             return await ctx.respond(f"{current[1]}(`{pid}`)(을)를 삭제하였습니다.")
         return await ctx.respond("권한이 없습니다.")
@@ -91,17 +106,23 @@ class Playlist(commands.Cog):
         if not self.check_perms(ctx):
             return await ctx.respond("권한이 없습니다.")
 
-        s_cursor = sqlite3.connect(js['database_src'] + 'charts.db')
-        conn = sqlite3.connect(js['database_src'] + 'like.db')
+        s_conn = pymysql.connect(host=js['database_host'], port=js['database_port'], user=js['database_user_id'],
+                               password=js['database_user_password'], database='charts')
+        conn = pymysql.connect(host=js['database_host'], port=js['database_port'], user=js['database_user_id'],
+                               password=js['database_user_password'], database='like')
+        s_cursor = s_conn.cursor()
         cursor = conn.cursor()
 
-        songs = [s[0] for s in s_cursor.execute('SELECT * FROM total').fetchall()]
+        s_cursor.execute('SELECT * FROM total')
+        songs = [s[0] for s in s_cursor.fetchall()]
         s_cursor.close()
+        s_conn.close()
 
         if sid not in songs:
             return await ctx.respond("존재하지 않는 노래 ID입니다.")
 
-        current = cursor.execute(f'SELECT * FROM playlist WHERE id = "{pid}"').fetchone()
+        cursor.execute(f'SELECT * FROM playlist WHERE id = "{pid}"')
+        current = cursor.fetchone()
         if not current:
             return await ctx.respond("존재하지 않는 재생목록입니다.")
 
@@ -112,6 +133,8 @@ class Playlist(commands.Cog):
 
         cursor.execute(f'UPDATE playlist SET song_ids = "{",".join(ids).strip(",")}" WHERE id = "{pid}"')
         conn.commit()
+
+        cursor.close()
         conn.close()
         return await ctx.respond(f"{sid}(이)가 {current[1]}에 추가되었습니다.")
 
@@ -120,20 +143,31 @@ class Playlist(commands.Cog):
         if not self.check_perms(ctx):
             return await ctx.respond("권한이 없습니다.")
 
-        s_cursor = sqlite3.connect(js['database_src'] + 'charts.db')
-        cursor = sqlite3.connect(js['database_src'] + 'like.db').cursor()
+        s_conn = pymysql.connect(host=js['database_host'], port=js['database_port'], user=js['database_user_id'],
+                               password=js['database_user_password'], database='charts')
+        conn = pymysql.connect(host=js['database_host'], port=js['database_port'], user=js['database_user_id'],
+                               password=js['database_user_password'], database='like')
+        s_cursor = s_conn.cursor()
+        cursor = conn.cursor()
 
-        current = cursor.execute(f'SELECT * FROM playlist WHERE id = "{pid}"').fetchone()
+        cursor.execute(f'SELECT * FROM playlist WHERE id = "{pid}"')
+        current = cursor.fetchone()
         if not current:
             return await ctx.respond("존재하지 않는 재생목록입니다.")
 
         ids = '", "'.join(current[2].split(','))
-        results = s_cursor.execute(f'SELECT * FROM total WHERE id IN ("{ids}")').fetchall()
+        s_cursor.execute(f'SELECT * FROM total WHERE id IN ("{ids}")')
+        results = s_cursor.fetchall()
 
         embed = discord.Embed(title=f"{current[1]} 곡 목록")
         for r in results:
             embed.add_field(name=f"{r[1]}(`{r[0]}`)", value=f"{r[2]} / {r[5]}", inline=False)
 
+        s_cursor.close()
+        cursor.close()
+
+        s_conn.close()
+        conn.close()
         try:
             return await ctx.respond(embed=embed)
         except discord.HTTPException:
@@ -145,10 +179,12 @@ class Playlist(commands.Cog):
         if not self.check_perms(ctx):
             return await ctx.respond("권한이 없습니다.")
 
-        conn = sqlite3.connect(js['database_src'] + 'like.db')
+        conn = pymysql.connect(host=js['database_host'], port=js['database_port'], user=js['database_user_id'],
+                               password=js['database_user_password'], database='like')
         cursor = conn.cursor()
 
-        current = cursor.execute(f'SELECT * FROM playlist WHERE id = "{pid}"').fetchone()
+        cursor.execute(f'SELECT * FROM playlist WHERE id = "{pid}"')
+        current = cursor.fetchone()
         if not current:
             return await ctx.respond("존재하지 않는 재생목록입니다.")
 
@@ -160,6 +196,8 @@ class Playlist(commands.Cog):
 
         cursor.execute(f'UPDATE playlist SET song_ids = "{",".join(ids)}" WHERE id = "{pid}"')
         conn.commit()
+
+        cursor.close()
         conn.close()
         return await ctx.respond(f"{sid}(이)가 {current[1]}에서 삭제되었습니다.")
 

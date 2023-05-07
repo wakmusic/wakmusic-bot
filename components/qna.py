@@ -2,6 +2,7 @@ import json
 import sqlite3
 import time
 import discord
+import pymysql
 
 
 class QNAForm(discord.ui.Modal):
@@ -11,8 +12,16 @@ class QNAForm(discord.ui.Modal):
             self.js = json.load(file)
 
         if qna:
-            cursor = sqlite3.connect(self.js['database_src'] + 'static.db').cursor()
-            data = cursor.execute(f'SELECT * FROM qna WHERE id = "{qna}"').fetchone()
+            conn = pymysql.connect(host=self.js['database_host'], port=self.js['database_port'],
+                                   user=self.js['database_user_id'],
+                                   password=self.js['database_user_password'], database='static')
+            cursor = conn.cursor()
+
+            cursor.execute(f'SELECT * FROM qna WHERE id = "{qna}"')
+            data = cursor.fetchone()
+            cursor.close()
+            conn.close()
+
             category = data[1]
             question = data[2]
             answer = data[3]
@@ -28,7 +37,9 @@ class QNAForm(discord.ui.Modal):
                                            style=discord.InputTextStyle.long, required=True, value=answer))
 
     async def callback(self, interaction: discord.Interaction):
-        conn = sqlite3.connect(self.js['database_src'] + 'static.db')
+        conn = pymysql.connect(host=self.js['database_host'], port=self.js['database_port'],
+                               user=self.js['database_user_id'],
+                               password=self.js['database_user_password'], database='static')
         cursor = conn.cursor()
 
         category = self.children[0].value
@@ -39,13 +50,19 @@ class QNAForm(discord.ui.Modal):
             cursor.execute(f'UPDATE qna SET category = "{category}", question = "{question}", '
                            f'description = "{answer}" WHERE id = "{self.qna}"')
             conn.commit()
+
+            cursor.close()
             conn.close()
             return await interaction.response.send_message(f'{question}(`{self.qna}`)(이)가 변경되었습니다.')
 
         created = int(time.time())
-        cursor.execute('INSERT INTO qna (category, question, description, create_at) VALUES (?, ?, ?, ?)', (category, question, answer, created))
+        cursor.execute('INSERT INTO qna (category, question, description, create_at) VALUES (?, ?, ?, ?)',
+                       (category, question, answer, created))
         conn.commit()
-        added = cursor.execute(f'SELECT * FROM qna WHERE create_at = {created}').fetchone()
-        conn.close()
 
+        cursor.execute(f'SELECT * FROM qna WHERE create_at = {created}')
+        added = cursor.fetchone()
+
+        cursor.close()
+        conn.close()
         return await interaction.response.send_message(f'{question}(`{added[0]}`) 질문이 추가되었습니다.')

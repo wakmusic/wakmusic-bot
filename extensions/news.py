@@ -4,6 +4,7 @@ from discord.ext import commands
 from discord import Option, SlashCommandGroup
 from aiohttp import ClientSession
 from components import NewsForm
+import pymysql
 
 with open('config.json', encoding='utf-8-sig') as file:
     js = json.load(file)
@@ -32,11 +33,16 @@ class News(commands.Cog):
     @group.command(name='삭제', description='뉴스를 삭제합니다.')
     async def news_rem(self, ctx, news: Option(str, "삭제할 뉴스의 ID를 입력해 주세요")):
         if self.check_perms(ctx):
-            conn = sqlite3.connect(js['database_src'] + 'static.db')
+            conn = pymysql.connect(host=js['database_host'], port=js['database_port'], user=js['database_user_id'],
+                                   password=js['database_user_password'], database='static')
             cursor = conn.cursor()
+            # conn = sqlite3.connect(js['database_src'] + 'static.db')
+            # cursor = conn.cursor()
 
             cursor.execute(f'DELETE FROM news WHERE id = "{news}"')
             conn.commit()
+
+            cursor.close()
             conn.close()
             return await ctx.respond(f"`{news}`(을)를 삭제하였습니다.")
         return await ctx.respond("권한이 없습니다.")

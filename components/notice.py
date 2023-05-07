@@ -4,6 +4,7 @@ import time
 import discord
 from aiohttp import ClientSession
 from datetime import datetime, timedelta, timezone
+import pymysql
 
 
 # from pytz import timezone
@@ -28,7 +29,9 @@ class NoticeForm(discord.ui.Modal):
                                            style=discord.InputTextStyle.short, required=True, value=None))
 
     async def callback(self, interaction: discord.Interaction):
-        conn = sqlite3.connect(self.js['database_src'] + 'static.db')
+        conn = pymysql.connect(host=self.js['database_host'], port=self.js['database_port'],
+                               user=self.js['database_user_id'],
+                               password=self.js['database_user_password'], database='static')
         cursor = conn.cursor()
         timezone_kst = timezone(timedelta(hours=9))
 
@@ -70,7 +73,10 @@ class NoticeForm(discord.ui.Modal):
             'INSERT INTO notice (category, title, main_text, thumbnail, images, create_at, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             (category, title, main_text, thumbnail, ','.join(added), current_time, start_time, end_time))
         conn.commit()
-        added = cursor.execute(f'SELECT * FROM notice WHERE create_at = {current_time}').fetchone()
-        conn.close()
 
+        cursor.execute(f'SELECT * FROM notice WHERE create_at = {current_time}')
+        added = cursor.fetchone()
+
+        cursor.close()
+        conn.close()
         return await interaction.response.send_message(f'{title}(`{added[0]}`) 공지가 추가되었습니다.')

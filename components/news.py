@@ -1,6 +1,7 @@
 import json
 import sqlite3
 import discord
+import pymysql
 
 
 class NewsForm(discord.ui.Modal):
@@ -11,8 +12,17 @@ class NewsForm(discord.ui.Modal):
             self.js = json.load(file)
 
         if news:
-            cursor = sqlite3.connect(self.js['database_src'] + 'static.db').cursor()
-            data = cursor.execute(f'SELECT * FROM news WHERE id = "{news}"').fetchone()
+            conn = pymysql.connect(host=self.js['database_host'], port=self.js['database_port'],
+                                   user=self.js['database_user_id'],
+                                   password=self.js['database_user_password'], database='static')
+            cursor = conn.cursor()
+
+            cursor.execute(f'SELECT * FROM news WHERE id = "{news}"')
+            data = cursor.fetchone()
+
+            cursor.close()
+            conn.close()
+
             article = data[0]
             subject = data[1]
             time = data[2]
@@ -28,7 +38,9 @@ class NewsForm(discord.ui.Modal):
                                            label="뉴스 주차", style=discord.InputTextStyle.short, required=True, value=time))
 
     async def callback(self, interaction: discord.Interaction):
-        conn = sqlite3.connect(self.js['database_src'] + 'static.db')
+        conn = pymysql.connect(host=self.js['database_host'], port=self.js['database_port'],
+                               user=self.js['database_user_id'],
+                               password=self.js['database_user_password'], database='static')
         cursor = conn.cursor()
 
         article = self.children[0].value.split('/')[-1]
@@ -39,15 +51,20 @@ class NewsForm(discord.ui.Modal):
             cursor.execute(f'UPDATE news SET id = "{article}", title = "{subject}", time = "{time}"'
                            f' WHERE id = "{article}"')
             conn.commit()
+
+            cursor.close()
             conn.close()
             return await interaction.response.send_message(f'{subject}(`{article}`)(이)가 변경되었습니다.')
 
-        exist = cursor.execute(f'SELECT * FROM news WHERE id = "{article}"').fetchone()
+        cursor.execute(f'SELECT * FROM news WHERE id = "{article}"')
+        exist = cursor.fetchone()
         if exist:
             return await interaction.response.send_message('이미 추가된 기사입니다.')
 
         cursor.execute('INSERT INTO news VALUES (?, ?, ?)', (article, subject, f'{time}'))
         conn.commit()
+
+        cursor.close()
         conn.close()
 
         root = '../wakmusic/src/images/news'
