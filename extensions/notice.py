@@ -54,7 +54,7 @@ class Notice(commands.Cog):
         date = datetime.fromtimestamp((int(data[7]) / 1000.0), tz=timezone_kst)
         new_end_date = date + timedelta(days=int(period))
 
-        cursor.execute(f'UPDATE notice SET end_at=? WHERE id=?', (int(new_end_date.timestamp() * 1000), nid))
+        cursor.execute(f'UPDATE notice SET end_at=%s WHERE id=%s', (int(new_end_date.timestamp() * 1000), nid))
         conn.commit()
 
         cursor.close()

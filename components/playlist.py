@@ -29,7 +29,7 @@ class PlForm(discord.ui.Modal):
         if exist:
             return await interaction.response.send_message('이미 동일한 ID를 가진 재생목록이 존재합니다.')
 
-        cursor.execute('INSERT INTO playlist VALUES (?, ?, ?, ?)', (pid, title, "", 0))
+        cursor.execute('INSERT INTO playlist VALUES (%s, %s, %s, %s)', (pid, title, "", 0))
         conn.commit()
 
         cursor.close()

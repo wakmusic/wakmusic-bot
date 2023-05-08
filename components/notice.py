@@ -70,7 +70,7 @@ class NoticeForm(discord.ui.Modal):
             image_count += 1
 
         cursor.execute(
-            'INSERT INTO notice (category, title, main_text, thumbnail, images, create_at, start_at, end_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO notice (category, title, main_text, thumbnail, images, create_at, start_at, end_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)',
             (category, title, main_text, thumbnail, ','.join(added), current_time, start_time, end_time))
         conn.commit()
 

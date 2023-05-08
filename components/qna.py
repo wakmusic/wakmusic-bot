@@ -56,7 +56,7 @@ class QNAForm(discord.ui.Modal):
             return await interaction.response.send_message(f'{question}(`{self.qna}`)(이)가 변경되었습니다.')
 
         created = int(time.time())
-        cursor.execute('INSERT INTO qna (category, question, description, create_at) VALUES (?, ?, ?, ?)',
+        cursor.execute('INSERT INTO qna (category, question, description, create_at) VALUES (%s, %s, %s, %s)',
                        (category, question, answer, created))
         conn.commit()
 

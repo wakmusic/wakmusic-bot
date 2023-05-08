@@ -61,7 +61,7 @@ class NewsForm(discord.ui.Modal):
         if exist:
             return await interaction.response.send_message('이미 추가된 기사입니다.')
 
-        cursor.execute('INSERT INTO news VALUES (?, ?, ?)', (article, subject, f'{time}'))
+        cursor.execute('INSERT INTO news VALUES (%s, %s, %s)', (article, subject, f'{time}'))
         conn.commit()
 
         cursor.close()
