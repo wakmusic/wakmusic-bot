@@ -3,7 +3,7 @@ import sqlite3
 import pymysql
 import discord
 from discord.ext import commands
-from discord import Option, SlashCommandGroup
+from discord import Option, SlashCommandGroup, ApplicationContext
 from aiohttp import ClientSession
 from components import PlForm
 
@@ -101,10 +101,12 @@ class Playlist(commands.Cog):
         return await ctx.respond("권한이 없습니다.")
 
     @group.command(name='곡추가', description='재생목록에 노래를 추가합니다.')
-    async def pl_s_add(self, ctx, pid: Option(str, "재생목록 ID를 입력해 주세요"),
+    async def pl_s_add(self, ctx: ApplicationContext, pid: Option(str, "재생목록 ID를 입력해 주세요"),
                        sid: Option(str, "추가할 노래의 ID를 입력해 주세요")):
         if not self.check_perms(ctx):
             return await ctx.respond("권한이 없습니다.")
+        
+        await ctx.response.defer()
 
         s_conn = pymysql.connect(host=js['database_host'], port=js['database_port'], user=js['database_user_id'],
                                password=js['database_user_password'], database='charts')
@@ -119,16 +121,16 @@ class Playlist(commands.Cog):
         s_conn.close()
 
         if sid not in songs:
-            return await ctx.respond("존재하지 않는 노래 ID입니다.")
+            return await ctx.followup.send("존재하지 않는 노래 ID입니다.")
 
         cursor.execute(f'SELECT * FROM playlist WHERE id = "{pid}"')
         current = cursor.fetchone()
         if not current:
-            return await ctx.respond("존재하지 않는 재생목록입니다.")
+            return await ctx.followup.send("존재하지 않는 재생목록입니다.")
 
         ids = current[2].split(',')
         if sid in ids:
-            return await ctx.respond("이미 재생목록에 추가된 노래입니다.")
+            return await ctx.followup.send("이미 재생목록에 추가된 노래입니다.")
         ids.append(sid)
 
         cursor.execute(f'UPDATE playlist SET song_ids = "{",".join(ids).strip(",")}" WHERE id = "{pid}"')
@@ -136,7 +138,7 @@ class Playlist(commands.Cog):
 
         cursor.close()
         conn.close()
-        return await ctx.respond(f"{sid}(이)가 {current[1]}에 추가되었습니다.")
+        return await ctx.followup.send(f"{sid}(이)가 {current[1]}에 추가되었습니다.")
 
     @group.command(name='곡목록', description='재생목록의 노래 목록을 불러옵니다.')
     async def pl_s_list(self, ctx, pid: Option(str, "재생목록 ID를 입력해 주세요")):
